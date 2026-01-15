@@ -1,0 +1,51 @@
+### Create Order
+POST http://localhost:3001/orders
+Content-Type: application/json
+
+{
+  "userId": "user-124",
+  "items": [
+    {
+      "productId": "prod-002",
+      "productName": "Laptop 2",
+      "quantity": 1,
+      "price": 999.99
+    },
+    {
+      "productId": "prod-003",
+      "productName": "Mouse 2",
+      "quantity": 2,
+      "price": 39.99
+    }
+  ]
+}
+
+### Get All Orders
+GET http://localhost:3001/orders
+
+### Get Order by ID (replace with actual ID)
+GET http://localhost:3001/orders/{{orderId}}
+
+### Get All Payments
+GET http://localhost:3002/payments
+
+### Get Payment by Order ID
+GET http://localhost:3002/payments/order/{{orderId}}
+
+### Get All Products (Inventory)
+GET http://localhost:3003/inventory/products
+
+### Get Reservations by Order
+GET http://localhost:3003/inventory/reservations/order/{{orderId}}
+
+### Get All Notifications
+GET http://localhost:3004/notifications
+
+### Get Notifications by Order
+GET http://localhost:3004/notifications/order/{{orderId}}
+
+### Health Checks / Metrics
+GET http://localhost:3001/metrics
+GET http://localhost:3002/metrics
+GET http://localhost:3003/metrics
+GET http://localhost:3004/metrics

@@ -1,0 +1,268 @@
+version: '3.8'
+
+services:
+  # Message Broker
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin123
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - microservices-net
+
+  # Cache
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - microservices-net
+
+  # Databases
+  order-db:
+    image: postgres:15-alpine
+    container_name: order-db
+    environment:
+      POSTGRES_USER: order_user
+      POSTGRES_PASSWORD: order_pass
+      POSTGRES_DB: order_db
+    ports:
+      - "5436:5432"
+    volumes:
+      - order_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U order_user -d order_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - microservices-net
+
+  payment-db:
+    image: postgres:15-alpine
+    container_name: payment-db
+    environment:
+      POSTGRES_USER: payment_user
+      POSTGRES_PASSWORD: payment_pass
+      POSTGRES_DB: payment_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - payment_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U payment_user -d payment_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - microservices-net
+
+  inventory-db:
+    image: postgres:15-alpine
+    container_name: inventory-db
+    environment:
+      POSTGRES_USER: inventory_user
+      POSTGRES_PASSWORD: inventory_pass
+      POSTGRES_DB: inventory_db
+    ports:
+      - "5434:5432"
+    volumes:
+      - inventory_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inventory_user -d inventory_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - microservices-net
+
+  notification-db:
+    image: postgres:15-alpine
+    container_name: notification-db
+    environment:
+      POSTGRES_USER: notification_user
+      POSTGRES_PASSWORD: notification_pass
+      POSTGRES_DB: notification_db
+    ports:
+      - "5435:5432"
+    volumes:
+      - notification_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notification_user -d notification_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - microservices-net
+
+  # Monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - microservices-net
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin123
+    volumes:
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - microservices-net
+
+  # Microservices
+  order-service:
+    build:
+      context: .
+      dockerfile: ./services/order-service/Dockerfile
+    container_name: order-service
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      DATABASE_HOST: order-db
+      DATABASE_PORT: 5432
+      DATABASE_USER: order_user
+      DATABASE_PASSWORD: order_pass
+      DATABASE_NAME: order_db
+      RABBITMQ_URL: amqp://admin:admin123@rabbitmq:5672
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      order-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - microservices-net
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: ./services/payment-service/Dockerfile
+    container_name: payment-service
+    ports:
+      - "3002:3002"
+    environment:
+      NODE_ENV: development
+      PORT: 3002
+      DATABASE_HOST: payment-db
+      DATABASE_PORT: 5432
+      DATABASE_USER: payment_user
+      DATABASE_PASSWORD: payment_pass
+      DATABASE_NAME: payment_db
+      RABBITMQ_URL: amqp://admin:admin123@rabbitmq:5672
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      payment-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - microservices-net
+
+  inventory-service:
+    build:
+      context: .
+      dockerfile: ./services/inventory-service/Dockerfile
+    container_name: inventory-service
+    ports:
+      - "3003:3003"
+    environment:
+      NODE_ENV: development
+      PORT: 3003
+      DATABASE_HOST: inventory-db
+      DATABASE_PORT: 5432
+      DATABASE_USER: inventory_user
+      DATABASE_PASSWORD: inventory_pass
+      DATABASE_NAME: inventory_db
+      RABBITMQ_URL: amqp://admin:admin123@rabbitmq:5672
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      inventory-db:
+        condition: service_healthy
+    networks:
+      - microservices-net
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: ./services/notification-service/Dockerfile
+    container_name: notification-service
+    ports:
+      - "3004:3004"
+    environment:
+      NODE_ENV: development
+      PORT: 3004
+      DATABASE_HOST: notification-db
+      DATABASE_PORT: 5432
+      DATABASE_USER: notification_user
+      DATABASE_PASSWORD: notification_pass
+      DATABASE_NAME: notification_db
+      RABBITMQ_URL: amqp://admin:admin123@rabbitmq:5672
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      notification-db:
+        condition: service_healthy
+    networks:
+      - microservices-net
+
+networks:
+  microservices-net:
+    driver: bridge
+
+volumes:
+  rabbitmq_data:
+  redis_data:
+  order_db_data:
+  payment_db_data:
+  inventory_db_data:
+  notification_db_data:
+  prometheus_data:
+  grafana_data:
