@@ -2,6 +2,12 @@
   "name": "order-outbox-example",
   "private": true,
   "type": "module",
-  "scripts": { "test": "node --test outbox.test.mjs" },
-  "dependencies": { "@electric-sql/pglite": "0.3.16" }
+  "scripts": {
+    "test": "node --test outbox.test.mjs",
+    "test:broker": "node --test broker.test.mjs"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "0.3.16",
+    "amqplib": "0.10.9"
+  }
 }

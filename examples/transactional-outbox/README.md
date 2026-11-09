@@ -22,6 +22,8 @@ Here the order ID is the entire command and published outbox rows are retained. 
 
 ## Where the guarantee ends
 
-The example runs a single relay with PGlite and a simulated publisher. A real RabbitMQ deployment needs publisher confirms and routing checks. Multiple relay workers would need to coordinate claims. Charging a card would add another boundary: the payment provider would need to support a stable idempotency key, with a way to reconcile an unknown outcome.
+The unit tests run a single relay with PGlite and a simulated publisher. A separate integration test runs against RabbitMQ. Set `AMQP_URL` to a disposable broker and run `npm run test:broker`; CI starts its own broker. The test sends to a missing queue using mandatory delivery. RabbitMQ returns the message before confirming the publish, so the row stays pending. Creating the queue and retrying delivers the original event. A publisher confirm alone would miss this failure.
+
+The broker test uses an exclusive queue. It covers routing and publisher acknowledgement. It does not measure durability after a broker restart. Multiple relay workers would need to coordinate claims. Charging a card would add another boundary: the payment provider would need to support a stable idempotency key, with a way to reconcile an unknown outcome.
 
 [Read the implementation and run the tests](https://github.com/rezanicgil/event-driven-microservices-nestjs/tree/main/examples/transactional-outbox).

@@ -15,6 +15,17 @@ jobs:
   outbox:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    services:
+      rabbitmq:
+        image: rabbitmq:4-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: outbox-test
+          RABBITMQ_DEFAULT_PASS: local-test-only
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q check_port_connectivity"
+          --health-interval 5s --health-timeout 5s --health-retries 20
     defaults:
       run:
         working-directory: examples/transactional-outbox
@@ -25,3 +36,6 @@ jobs:
           node-version: '22'
       - run: npm ci --ignore-scripts
       - run: npm test
+      - run: npm run test:broker
+        env:
+          AMQP_URL: amqp://outbox-test:local-test-only@localhost:5672
