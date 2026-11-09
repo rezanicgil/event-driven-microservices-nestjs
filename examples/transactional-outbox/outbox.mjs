@@ -4,7 +4,7 @@ export const schema = `
   CREATE TABLE orders (id uuid PRIMARY KEY);
   CREATE TABLE outbox (
     event_id uuid PRIMARY KEY,
-    order_id uuid NOT NULL REFERENCES orders(id),
+    order_id uuid NOT NULL UNIQUE REFERENCES orders(id),
     published_at timestamptz
   );
   CREATE TABLE processed_events (event_id uuid PRIMARY KEY);
@@ -12,12 +12,20 @@ export const schema = `
 `;
 
 export async function createOrder(db, orderId = randomUUID()) {
-  const eventId = randomUUID();
-  await db.transaction(async tx => {
-    await tx.query('INSERT INTO orders VALUES ($1)', [orderId]);
+  return db.transaction(async tx => {
+    const inserted = await tx.query(
+      'INSERT INTO orders (id) VALUES ($1) ON CONFLICT (id) DO NOTHING RETURNING id',
+      [orderId]
+    );
+    if (!inserted.rows.length) {
+      const existing = await tx.query('SELECT event_id FROM outbox WHERE order_id = $1', [orderId]);
+      if (!existing.rows.length) throw Error('Order has no creation event');
+      return { orderId, eventId: existing.rows[0].event_id };
+    }
+    const eventId = randomUUID();
     await tx.query('INSERT INTO outbox (event_id, order_id) VALUES ($1, $2)', [eventId, orderId]);
+    return { orderId, eventId };
   });
-  return { orderId, eventId };
 }
 
 // One relay instance. The publisher resolves after acknowledgement.

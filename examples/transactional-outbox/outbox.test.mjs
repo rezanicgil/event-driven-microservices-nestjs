@@ -33,3 +33,19 @@ test('lost acknowledgement replays the same event and produces one fulfilment re
   assert.deepEqual(deliveries, [eventId, eventId]);
   assert.deepEqual((await db.query('SELECT order_id FROM fulfilment_requests')).rows, [{ order_id: orderId }]);
 });
+
+test('retrying a committed order returns its original event even after publication', async t => {
+  const db = await database(t);
+  const first = await createOrder(db);
+  await relayPending(db, event => consume(db, event));
+  assert.deepEqual(await createOrder(db, first.orderId), first);
+  const another = await createOrder(db);
+  const published = [];
+  await relayPending(db, async event => {
+    published.push(event.event_id);
+    await consume(db, event);
+  });
+  assert.deepEqual(published, [another.eventId]);
+  assert.equal((await db.query('SELECT * FROM orders')).rows.length, 2);
+  assert.equal((await db.query('SELECT * FROM fulfilment_requests')).rows.length, 2);
+});
