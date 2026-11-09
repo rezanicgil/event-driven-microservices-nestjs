@@ -1,5 +1,9 @@
 # One order, two event deliveries
 
+[![Outbox failure tests](https://github.com/rezanicgil/event-driven-microservices-nestjs/actions/workflows/outbox.yml/badge.svg)](https://github.com/rezanicgil/event-driven-microservices-nestjs/actions/workflows/outbox.yml)
+
+From this directory, run `npm ci` and `npm test` with Node.js 22. The workflow runs the same tests on relevant pushes and pull requests.
+
 An order can reach PostgreSQL while the payment service never hears about it. In the [NestJS reference project](https://github.com/rezanicgil/event-driven-microservices-nestjs), the order handler saves the purchase and then publishes to RabbitMQ. If the process stops between those operations, the broker has nothing to deliver.
 
 ## Test the first failure
