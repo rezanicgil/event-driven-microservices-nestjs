@@ -1,6 +1,6 @@
 # Event-Driven Microservices with NestJS
 
-A production-ready event-driven microservices architecture built with NestJS, RabbitMQ, PostgreSQL, and Redis. Features complete observability stack with Prometheus and Grafana.
+This reference application follows an order through four NestJS services. An order starts independent payment and stock workflows. Each service owns its data, and a notification service records their outcomes.
 
 ## Architecture Overview
 
@@ -53,16 +53,19 @@ A production-ready event-driven microservices architecture built with NestJS, Ra
 | **Order Service** | 3001 | Order management, event publishing |
 | **Payment Service** | 3002 | Payment processing, Redis caching |
 | **Inventory Service** | 3003 | Stock management, reservations |
-| **Notification Service** | 3004 | Email/SMS notifications |
+| **Notification Service** | 3004 | Simulated email/SMS notifications |
 
-## Features
+## Design decisions and reliability
 
-- **Event-Driven Architecture** - Loosely coupled services communicating via RabbitMQ
-- **CQRS Pattern** - Separate read/write operations with event sourcing ready
-- **Observability** - Prometheus metrics, Grafana dashboards, structured logging
-- **Resilience** - Health checks, retry mechanisms, graceful shutdown
-- **Type Safety** - Full TypeScript with strict mode
-- **Docker Ready** - Complete containerization with docker-compose
+RabbitMQ topic routing lets payment and inventory process the same order independently. Clients query those services to learn the downstream outcomes.
+
+The [order handler](services/order-service/src/orders/orders.service.ts) saves the order and then publishes its event. A crash between these operations can leave an order without a message. A transactional outbox would store the order and pending event in one database transaction and use a relay to publish later. The current handler publishes directly.
+
+Consumers acknowledge completed work. The RabbitMQ adapters reject failed handlers without requeueing. A crash after a database write but before acknowledgement can result in redelivery. Consumer deduplication, dead-letter routing and recovery tests would be needed before deploying this workflow.
+
+## Known limitations
+
+Payment outcomes and outbound notifications are simulated. The repository has no documented throughput benchmark. Inspect the [payment handler](services/payment-service/src/payments/payments.service.ts) and [inventory handler](services/inventory-service/src/inventory/inventory.service.ts) to trace side effects.
 
 ## Quick Start
 
@@ -75,7 +78,7 @@ A production-ready event-driven microservices architecture built with NestJS, Ra
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/rezanicgil/event-driven-microservices-nestjs.git
 cd event-driven-microservices-nestjs
 
 # Start all services
@@ -252,21 +255,9 @@ Each service exposes Prometheus metrics at `/metrics`:
 
 ## Development
 
-### Running Tests
+### Manual API checks
 
-```bash
-cd services/<service-name>
-npm run test        # Unit tests
-npm run test:e2e    # E2E tests
-npm run test:cov    # Coverage report
-```
-
-### Linting
-
-```bash
-cd services/<service-name>
-npm run lint
-```
+Start the Compose stack and run the create-order request in [test-requests.http](test-requests.http). Copy its order ID into the payment, inventory and notification requests. These reads are asynchronous. Check the returned order ID and outcome from each service. The packages provide build and start scripts. Automated delivery-failure tests remain open.
 
 ### Building for Production
 
