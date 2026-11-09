@@ -1,0 +1,7 @@
+{
+  "name": "order-outbox-example",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test outbox.test.mjs" },
+  "dependencies": { "@electric-sql/pglite": "0.3.16" }
+}

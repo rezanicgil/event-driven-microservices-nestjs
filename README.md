@@ -65,6 +65,12 @@ Consumers acknowledge completed work. The RabbitMQ adapters reject failed handle
 
 ## Known limitations
 
+### Run the transactional outbox example
+
+The [reference implementation](examples/transactional-outbox/outbox.mjs) writes an order and a pending event in one PostgreSQL transaction. A single relay retries pending events using their original IDs. The consumer records the event ID and creates the fulfilment request in a second transaction.
+
+From `examples/transactional-outbox`, run `npm install` and `npm test`. Two tests exercise an event insert failure and a lost acknowledgement after delivery. They use PGlite and a simulated publisher. The Compose services above still use direct publication. Multi-worker scheduling, real RabbitMQ acknowledgements and external payment side effects are outside the example.
+
 Payment outcomes and outbound notifications are simulated. The repository has no documented throughput benchmark. Inspect the [payment handler](services/payment-service/src/payments/payments.service.ts) and [inventory handler](services/inventory-service/src/inventory/inventory.service.ts) to trace side effects.
 
 ## Quick Start
